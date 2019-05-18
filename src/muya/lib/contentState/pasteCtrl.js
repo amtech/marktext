@@ -1,7 +1,7 @@
 import { sanitize, getUniqueId } from '../utils'
 import { getImageInfo } from '../utils/checkEditImage'
-import { PARAGRAPH_TYPES, PREVIEW_DOMPURIFY_CONFIG, SMALLEST_BASE64 } from '../config'
-
+import { PARAGRAPH_TYPES, PREVIEW_DOMPURIFY_CONFIG, SMALLEST_BASE64, IMAGE_EXT_REG } from '../config'
+// import electron from 'electron'
 const LIST_REG = /ul|ol/
 const LINE_BREAKS_REG = /\n/
 
@@ -79,6 +79,34 @@ const pasteCtrl = ContentState => {
   }
 
   ContentState.prototype.pasteImage = async function (event) {
+    // Try to guess the clipboard file path.
+    const imagePath = this.muya.options.clipboardFilePath()
+    if (imagePath && typeof imagePath === 'string' && IMAGE_EXT_REG.test(imagePath)) {
+      const id = `loading-${getUniqueId()}`
+      if (this.selectedImage) {
+        this.replaceImage(this.selectedImage, {
+          src: imagePath,
+          title: id
+        })
+      } else {
+        this.insertImage({
+          src: imagePath,
+          title: id
+        })
+      }
+      const nSrc = await this.muya.options.imageAction(imagePath)
+      console.log(nSrc)
+      const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
+
+      if (imageWrapper) {
+        const imageInfo = getImageInfo(imageWrapper)
+        this.replaceImage(imageInfo, {
+          src: nSrc
+        })
+      }
+      return imagePath
+    }
+
     const items = event.clipboardData && event.clipboardData.items
     let file = null
     if (items && items.length) {
@@ -92,7 +120,6 @@ const pasteCtrl = ContentState => {
 
     // handle paste to create inline image
     if (file) {
-      const now = +new Date()
       const id = `loading-${getUniqueId()}`
       if (this.selectedImage) {
         this.replaceImage(this.selectedImage, {
@@ -106,12 +133,10 @@ const pasteCtrl = ContentState => {
         })
       }
 
-      console.log('insert', +new Date() - now)
       const reader = new FileReader()
       reader.onload = (event) => {
         const base64 = event.target.result
         const image = this.muya.container.querySelector(`span[data-id=${id}] .ag-image-container img`)
-        console.log('base64', +new Date() - now)
         if (image) {
           image.src = base64
         }
@@ -119,7 +144,6 @@ const pasteCtrl = ContentState => {
       reader.readAsDataURL(file)
 
       const nSrc = await this.muya.options.imageAction(file)
-      console.log('copy', +new Date() - now)
       const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
 
       if (imageWrapper) {
@@ -158,7 +182,7 @@ const pasteCtrl = ContentState => {
     }
 
     const file = this.pasteImage(event)
-    if (file) return
+    if (file) return event.stopPropagation()
 
     const appendHtml = (text) => {
       startBlock.text = startBlock.text.substring(0, start.offset) + text + startBlock.text.substring(start.offset)
