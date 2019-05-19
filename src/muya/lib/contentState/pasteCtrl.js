@@ -1,5 +1,5 @@
 import { sanitize, getUniqueId } from '../utils'
-import { getImageInfo } from '../utils/checkEditImage'
+import { getImageInfo } from '../utils/getImageInfo'
 import { PARAGRAPH_TYPES, PREVIEW_DOMPURIFY_CONFIG, SMALLEST_BASE64, IMAGE_EXT_REG } from '../config'
 // import electron from 'electron'
 const LIST_REG = /ul|ol/
