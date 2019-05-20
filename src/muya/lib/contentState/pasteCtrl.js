@@ -1,6 +1,6 @@
-import { sanitize, getUniqueId } from '../utils'
+import { sanitize, getUniqueId, getImageInfo as getImageSrc } from '../utils'
 import { getImageInfo } from '../utils/getImageInfo'
-import { PARAGRAPH_TYPES, PREVIEW_DOMPURIFY_CONFIG, SMALLEST_BASE64, IMAGE_EXT_REG } from '../config'
+import { PARAGRAPH_TYPES, PREVIEW_DOMPURIFY_CONFIG, IMAGE_EXT_REG } from '../config'
 // import electron from 'electron'
 const LIST_REG = /ul|ol/
 const LINE_BREAKS_REG = /\n/
@@ -85,16 +85,21 @@ const pasteCtrl = ContentState => {
       const id = `loading-${getUniqueId()}`
       if (this.selectedImage) {
         this.replaceImage(this.selectedImage, {
+          alt: id,
           src: imagePath,
-          title: id
         })
       } else {
         this.insertImage({
-          src: imagePath,
-          title: id
+          alt: id,
+          src: imagePath
         })
       }
       const nSrc = await this.muya.options.imageAction(imagePath)
+      const { src } = getImageSrc(imagePath)
+      if (src) {
+        this.stateRender.urlMap.set(nSrc, src)
+      }
+
       const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
 
       if (imageWrapper) {
@@ -122,27 +127,38 @@ const pasteCtrl = ContentState => {
       const id = `loading-${getUniqueId()}`
       if (this.selectedImage) {
         this.replaceImage(this.selectedImage, {
-          src: SMALLEST_BASE64,
-          title: id
+          alt: id,
+          src: ''
         })
       } else {
         this.insertImage({
-          src: SMALLEST_BASE64,
-          title: id
+          alt: id,
+          src: ''
         })
       }
 
       const reader = new FileReader()
-      reader.onload = (event) => {
+      reader.onload = event => {
         const base64 = event.target.result
-        const image = this.muya.container.querySelector(`span[data-id=${id}] .ag-image-container img`)
-        if (image) {
+        const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
+        const imageContainer = this.muya.container.querySelector(`span[data-id=${id}] .ag-image-container`)
+        this.stateRender.urlMap.set(id, base64)
+        if (imageContainer) {
+          imageWrapper.classList.remove('ag-empty-image')
+          imageWrapper.classList.add('ag-image-success')
+          const image = document.createElement('img')
           image.src = base64
+          imageContainer.appendChild(image)
         }
       }
       reader.readAsDataURL(file)
 
       const nSrc = await this.muya.options.imageAction(file)
+      const base64 = this.stateRender.urlMap.get(id)
+      if (base64) {
+        this.stateRender.urlMap.set(nSrc, base64)
+        this.stateRender.urlMap.delete(id)
+      }
       const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
 
       if (imageWrapper) {
